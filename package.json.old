@@ -6,12 +6,12 @@
   "unpkg": "dist/keras.min.js",
   "scripts": {
     "watch": "NODE_ENV=development BABEL_ENV=browser webpack --watch --config webpack.config.js",
-    "build:browser": "IF exist dist (rmdir /S /Q dist)&& SET NODE_ENV=production && SET BABEL_ENV=browser && webpack --config webpack.config.js",
-    "build:node": "IF exist lib (rmdir /S /Q lib)&& SET NODE_ENV=production && SET BABEL_ENV=node && babel src --out-dir lib",
+    "build:browser": "rm -rf dist; NODE_ENV=production BABEL_ENV=browser webpack --config webpack.config.js",
+    "build:node": "rm -rf lib; NODE_ENV=production BABEL_ENV=node babel src --out-dir lib",
     "build": "npm run build:browser && npm run build:node",
     "server": "http-server . -c-1 -p 3000",
-    "demos:watch": "cd demos; SET NODE_ENV=development BABEL_ENV=browser webpack --watch --config webpack.config.js",
-    "demos:build": "cd demos; IF exist dist (rm /S /Q dist); SET NODE_ENV=production BABEL_ENV=browser webpack --config webpack.config.js",
+    "demos:watch": "cd demos; NODE_ENV=development BABEL_ENV=browser webpack --watch --config webpack.config.js",
+    "demos:build": "cd demos; rm -rf dist; NODE_ENV=production BABEL_ENV=browser webpack --config webpack.config.js",
     "proto2js": "pbjs --target static-module --wrap es6 proto/model.proto > src/proto.js"
   },
   "repository": {
