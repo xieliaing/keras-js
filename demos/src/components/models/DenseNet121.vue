@@ -1,11 +1,11 @@
 <template>
   <div class="demo">
     <imagenet
-      modelName="resnet50"
+      modelName="densenet121"
       :modelFilepath="modelFilepath"
       :hasWebGL="hasWebGL"
       :imageSize="224"
-      :visualizations="['None']"
+      :visualizations="['CAM']"
       :preprocess="preprocess"
     ></imagenet>
   </div>
@@ -16,8 +16,8 @@ import ndarray from 'ndarray'
 import ops from 'ndarray-ops'
 import Imagenet from '../common/Imagenet'
 
-const MODEL_FILEPATH_PROD = 'https://transcranial.github.io/keras-js-demos-data/resnet50/resnet50.bin'
-const MODEL_FILEPATH_DEV = '/demos/data/resnet50/resnet50.bin'
+const MODEL_FILEPATH_PROD = 'https://transcranial.github.io/keras-js-demos-data/densenet121/densenet121.bin'
+const MODEL_FILEPATH_DEV = '/demos/data/densenet121/densenet121.bin'
 
 export default {
   props: ['hasWebGL'],
@@ -42,6 +42,7 @@ export default {
       ops.subseq(dataTensor.pick(null, null, 2), 103.939)
       ops.subseq(dataTensor.pick(null, null, 1), 116.779)
       ops.subseq(dataTensor.pick(null, null, 0), 123.68)
+      ops.mulseq(dataTensor, 0.017)
       ops.assign(dataProcessedTensor.pick(null, null, 0), dataTensor.pick(null, null, 2))
       ops.assign(dataProcessedTensor.pick(null, null, 1), dataTensor.pick(null, null, 1))
       ops.assign(dataProcessedTensor.pick(null, null, 2), dataTensor.pick(null, null, 0))

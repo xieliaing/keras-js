@@ -1,12 +1,26 @@
 <template>
   <div class="demo">
-    <v-progress-circular v-if="modelLoading && loadingProgress < 100" indeterminate color="primary" />
-    <div class="loading-progress" v-if="modelLoading && loadingProgress < 100">Loading...{{ loadingProgress }}%</div>
-    <v-layout v-if="!modelLoading" row wrap justify-center>
+    <transition name="fade">
+      <model-status v-if="modelLoading || modelInitializing" 
+        :modelLoading="modelLoading"
+        :modelLoadingProgress="modelLoadingProgress"
+        :modelInitializing="modelInitializing"
+        :modelInitProgress="modelInitProgress"
+      ></model-status>
+    </transition>
+    <v-alert outline color="error" icon="priority_high" :value="!hasWebGL">
+      Note: this browser does not support WebGL 2 or the features necessary to run in GPU mode.
+    </v-alert>
+    <v-layout row wrap justify-center>
       <v-flex sm2 md1>
         <div class="controls-column">
           <div class="control">
-            <v-switch label="use GPU" v-model="useGPU" :disabled="modelLoading || !hasWebGL" color="primary"></v-switch>
+            <v-switch 
+              :disabled="modelLoading || modelInitializing || !hasWebGL" 
+              label="use GPU"
+              v-model="useGPU"
+              color="primary"
+            ></v-switch>
           </div>
         </div>
       </v-flex>
@@ -35,34 +49,22 @@
         </div>
       </v-flex>
     </v-layout>
-    <div class="architecture-container" v-if="!modelLoading">
-      <div v-for="(row, rowIndex) in architectureDiagramRows" :key="`row-${rowIndex}`" class="layers-row">
-        <div v-for="layer in row" :key="`layer-${layer.name}`" class="layer-column">
-          <div v-if="layer.className" class="layer" :id="layer.name">
-            <div class="layer-class-name">{{ layer.className }}</div>
-            <div class="layer-details"> {{ layer.details }}</div>
-          </div>
-        </div>
-      </div>
-      <svg class="architecture-connections" width="100%" height="100%">
-        <g>
-          <path v-for="(path, pathIndex) in architectureDiagramPaths" :key="`path-${pathIndex}`" :d="path" />
-        </g>
-      </svg>
-    </div>
+    <architecture-diagram :modelLayersInfo="modelLayersInfo"></architecture-diagram>
   </div>
 </template>
 
 <script>
-import * as utils from '../../utils'
-import _ from 'lodash'
-import { ARCHITECTURE_DIAGRAM, ARCHITECTURE_CONNECTIONS } from '../../data/mnist-acgan-arch'
+import { tensorUtils } from '../../utils'
+import ModelStatus from '../common/ModelStatus'
+import ArchitectureDiagram from '../common/ArchitectureDiagram'
 
 const MODEL_FILEPATH_PROD = 'https://transcranial.github.io/keras-js-demos-data/mnist_acgan/mnist_acgan.bin'
 const MODEL_FILEPATH_DEV = '/demos/data/mnist_acgan/mnist_acgan.bin'
 
 export default {
   props: ['hasWebGL'],
+
+  components: { ModelStatus, ArchitectureDiagram },
 
   created() {
     this.createNoise()
@@ -71,45 +73,35 @@ export default {
       filepath: process.env.NODE_ENV === 'production' ? MODEL_FILEPATH_PROD : MODEL_FILEPATH_DEV,
       gpu: this.hasWebGL
     })
+
+    this.model.events.on('loadingProgress', this.handleLoadingProgress)
+    this.model.events.on('initProgress', this.handleInitProgress)
   },
 
   async mounted() {
     await this.model.ready()
-    this.modelLoading = false
-    this.$nextTick(() => {
-      this.drawArchitectureDiagramPaths()
-      this.runModel()
-      this.drawNoise()
-    })
+    await this.$nextTick()
+    this.modelLayersInfo = this.model.modelLayersInfo
+    this.runModel()
+    this.drawNoise()
   },
 
   beforeDestroy() {
     this.model.cleanup()
+    this.model.events.removeAllListeners()
   },
 
   data() {
     return {
       useGPU: this.hasWebGL,
+      modelLoading: true,
+      modelLoadingProgress: 0,
+      modelInitializing: true,
+      modelInitProgress: 0,
+      modelLayersInfo: [],
       digit: 3,
       noiseVector: [],
-      modelLoading: true,
-      output: new Float32Array(28 * 28),
-      architectureDiagram: ARCHITECTURE_DIAGRAM,
-      architectureConnections: ARCHITECTURE_CONNECTIONS,
-      architectureDiagramPaths: []
-    }
-  },
-
-  computed: {
-    loadingProgress() {
-      return this.model.getLoadingProgress()
-    },
-    architectureDiagramRows() {
-      const rows = []
-      for (let row = 0; row < 12; row++) {
-        rows.push(_.filter(this.architectureDiagram, { row }))
-      }
-      return rows
+      output: new Float32Array(28 * 28)
     }
   },
 
@@ -120,39 +112,20 @@ export default {
   },
 
   methods: {
-    drawArchitectureDiagramPaths() {
-      this.architectureDiagramPaths = []
-      this.$nextTick(() => {
-        this.architectureConnections.forEach(conn => {
-          const containerElem = document.getElementsByClassName('architecture-container')[0]
-          const fromElem = document.getElementById(conn.from)
-          const toElem = document.getElementById(conn.to)
-          const containerElemCoords = containerElem.getBoundingClientRect()
-          const fromElemCoords = fromElem.getBoundingClientRect()
-          const toElemCoords = toElem.getBoundingClientRect()
-          const xContainer = containerElemCoords.left
-          const yContainer = containerElemCoords.top
-          const xFrom = fromElemCoords.left + fromElemCoords.width / 2 - xContainer
-          const yFrom = fromElemCoords.top + fromElemCoords.height / 2 - yContainer
-          const xTo = toElemCoords.left + toElemCoords.width / 2 - xContainer
-          const yTo = toElemCoords.top + toElemCoords.height / 2 - yContainer
-
-          let path = `M${xFrom},${yFrom} L${xTo},${yTo}`
-          if (conn.corner === 'top-right') {
-            path = `M${xFrom},${yFrom} L${xTo - 10},${yFrom} Q${xTo},${yFrom} ${xTo},${yFrom + 10} L${xTo},${yTo}`
-          } else if (conn.corner === 'bottom-left') {
-            path = `M${xFrom},${yFrom} L${xFrom},${yTo - 10} Q${xFrom},${yTo} ${xFrom + 10},${yTo} L${xTo},${yTo}`
-          } else if (conn.corner === 'top-left') {
-            path = `M${xFrom},${yFrom} L${xTo + 10},${yFrom} Q${xTo},${yFrom} ${xTo},${yFrom + 10} L${xTo},${yTo}`
-          } else if (conn.corner === 'bottom-right') {
-            path = `M${xFrom},${yFrom} L${xFrom},${yTo - 10} Q${xFrom},${yTo} ${xFrom - 10},${yTo} L${xTo},${yTo}`
-          }
-
-          this.architectureDiagramPaths.push(path)
-        })
-      })
+    handleLoadingProgress(progress) {
+      this.modelLoadingProgress = Math.round(progress)
+      if (progress === 100) {
+        this.modelLoading = false
+      }
+    },
+    handleInitProgress(progress) {
+      this.modelInitProgress = Math.round(progress)
+      if (progress === 100) {
+        this.modelInitializing = false
+      }
     },
     selectDigit(digit) {
+      if (this.modelLoading || this.modelInitializing) return
       this.digit = digit
       this.runModel()
     },
@@ -188,7 +161,7 @@ export default {
     },
     drawOutput() {
       const ctx = document.getElementById('output-canvas').getContext('2d')
-      const image = utils.image2Darray(this.output, 28, 28, [0, 0, 0])
+      const image = tensorUtils.image2Darray(this.output, 28, 28, [0, 0, 0])
       ctx.putImageData(image, 0, 0)
 
       // scale up
@@ -200,6 +173,7 @@ export default {
       ctxScaled.restore()
     },
     onGenerateNewNoise() {
+      if (this.modelLoading || this.modelInitializing) return
       this.createNoise()
       this.runModel()
       this.drawNoise()
@@ -375,5 +349,15 @@ export default {
       fill: none;
     }
   }
+}
+
+/* vue transition `fade` */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s;
+}
+.fade-enter,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>
