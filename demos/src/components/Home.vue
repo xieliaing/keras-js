@@ -1,11 +1,13 @@
 <template>
-  <div class="demo home">
-    <a v-for="info in demoInfo" :key="info.path" :href="`#/${info.path}`">
-      <div class="demo-card">
-        <div class="demo-card-image"><img :src="info.imagePath" /></div>
-        <div class="demo-card-heading">{{ info.title }}</div>
-      </div>
-    </a>
+  <div class="demo home text-xs-center">
+    <div v-for="info in demoInfo" :key="info.path" style="width:100%">
+      <a :href="`#/${info.path}`">
+        <div class="demo-card">
+          <div class="demo-card-image"><img :src="info.imagePath" /></div>
+          <div class="demo-card-heading">{{ info.title }}</div>
+        </div>
+      </a>
+    </div>
   </div>
 </template>
 
@@ -24,7 +26,7 @@ const DEMO_INFO = [
   },
   { title: '50-layer Residual Network, trained on ImageNet', path: 'resnet50', imagePath: 'demos/assets/resnet50.png' },
   { title: 'Inception v3, trained on ImageNet', path: 'inception-v3', imagePath: 'demos/assets/inception-v3.png' },
-  { title: 'DenseNet-121, trained on ImageNet', path: 'densenet121', imagePath: 'demos/assets/inception-v3.png' },
+  { title: 'DenseNet-121, trained on ImageNet', path: 'densenet121', imagePath: 'demos/assets/densenet121.png' },
   {
     title: 'SqueezeNet v1.1, trained on ImageNet',
     path: 'squeezenet-v1.1',
@@ -51,11 +53,13 @@ export default {
   font-family: var(--font-sans-serif);
   width: 100%;
   max-width: 1000px;
+  height: 90px;
   margin: 30px auto;
-  background: whitesmoke;
+  background: white;
+  border: 1px solid whitesmoke;
   cursor: default;
   user-select: none;
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
@@ -87,9 +91,11 @@ export default {
 }
 
 .demo-card-image {
+  height: 90px;
+
   & img {
-    width: 150px;
-    height: auto;
+    width: auto;
+    height: 100%;
   }
 }
 </style>
